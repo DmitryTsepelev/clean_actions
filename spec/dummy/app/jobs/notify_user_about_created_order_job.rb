@@ -1,0 +1,2 @@
+class NotifyUserAboutCreatedOrderJob < ApplicationJob
+end
