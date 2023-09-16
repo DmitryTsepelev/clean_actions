@@ -13,7 +13,7 @@ class AddItemToCart < CleanActions::Base
   option :user
   option :item
 
-  # This will raise an error if someone accidentally returns wrong instance from #perform_actions.
+  # This will report an error if someone accidentally returns wrong instance from #perform_actions.
   returns OrderItem
 
   # Such checks are happening inside the transaction right before #perform_actions, so
@@ -99,10 +99,23 @@ class FetchOrder < CleanActions::Base
   end
 end
 
-FetchOrder.call(42) # => StandardError("expected FetchOrder to return Order, returned User")
+FetchOrder.call(42) # => "expected FetchOrder to return Order, returned User" is logged
 ```
 
 The last line of `#perform_actions` will be returned. Note that if you have this module on but configure nothing—action will return `nil`.
+
+## Configuration
+
+When something weird happens during the action execution, the message is sent to the Rails log. Also, errors are _raised_ in development and test environments. To change that you can use `.config` object:
+
+```ruby
+CleanActions.config.raise_errors = true
+```
+
+Here is a list of errors affected by this config:
+
+- type mismatch from (Typed Returns)[/README.md#Typed-Returns];
+- action with (#before_transaction)[/README.md#before_transaction] is called inside the transaction.
 
 ## Advanced Lifecycle
 
@@ -133,7 +146,7 @@ class OtherAction < CleanActions::Base
   end
 end
 
-OtherAction.call # => StandardError("SyncData#before_transaction was called inside the transaction")
+OtherAction.call # => "SyncData#before_transaction was called inside the transaction"  is logged
 ```
 
 ### before_actions

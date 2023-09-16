@@ -5,6 +5,10 @@ RSpec.describe CleanActions::Action do
 
   let(:action_params) { {} }
 
+  before do
+    allow(CleanActions::ErrorReporter).to receive(:report)
+  end
+
   context "#perform_actions" do
     let(:ensured_service) { instance_double "EnsuredService" }
     let(:transactional_service) { instance_double "TransactionalService" }
@@ -121,9 +125,8 @@ RSpec.describe CleanActions::Action do
       end
 
       specify do
-        expect { subject }.to raise_exception(
-          StandardError, "#before_transaction was called inside the transaction"
-        )
+        subject
+        expect(CleanActions::ErrorReporter).to have_received(:report).with("#before_transaction was called inside the transaction")
       end
     end
   end
