@@ -16,21 +16,19 @@ RSpec.configure do |config|
   config.example_status_persistence_file_path = ".rspec_status"
   config.infer_base_class_for_anonymous_controllers = true
 
-  if Rails::VERSION::MAJOR >= 7
-    config.use_transactional_fixtures = true
-  else
-    config.before(:suite) do
-      DatabaseCleaner.clean_with(:truncation)
-    end
+  config.use_transactional_fixtures = false
 
-    config.before(:each) do |e|
-      DatabaseCleaner.strategy = e.metadata[:skip_transaction] ? :truncation : :transaction
-      DatabaseCleaner.start
-    end
+  config.before(:suite) do
+    DatabaseCleaner.clean_with(:truncation)
+  end
 
-    config.append_after(:each) do
-      DatabaseCleaner.clean
-    end
+  config.before(:each) do |e|
+    DatabaseCleaner.strategy = :truncation
+    DatabaseCleaner.start
+  end
+
+  config.append_after(:each) do
+    DatabaseCleaner.clean
   end
 
   config.expect_with :rspec do |c|
@@ -38,9 +36,7 @@ RSpec.configure do |config|
   end
 end
 
-ActiveRecord::Base.establish_connection(
-  adapter: "sqlite3",
-  database: ":memory:"
-)
+ActiveRecord::Base.establish_connection(ENV["DATABASE_URL"] || {adapter: "postgresql",
+                                                                database: "clean_actions_test"})
 
 load File.dirname(__FILE__) + "/dummy/db/schema.rb"

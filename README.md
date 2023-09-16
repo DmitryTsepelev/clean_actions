@@ -104,7 +104,31 @@ FetchOrder.call(42) # => "expected FetchOrder to return Order, returned User" is
 
 The last line of `#perform_actions` will be returned. Note that if you have this module on but configure nothing—action will return `nil`.
 
-## Configuration
+## Isolation levels
+
+By default transactions are executed in `READ COMMITTED` level. You can override it for a specific aciton:
+
+```ruby
+class FetchOrder < CleanActions::Base
+  with_isolation_level :repeatable_read
+
+  option :order_id
+
+  def perform_actions
+    # actions
+  end
+end
+
+FetchOrder.call(42) # => "expected FetchOrder to return Order, returned User" is logged
+```
+
+Also, you can configure it for the whole project:
+
+```ruby
+CleanActions.config.isolation_level = :serializable
+```
+
+## Error configuration
 
 When something weird happens during the action execution, the message is sent to the Rails log. Also, errors are _raised_ in development and test environments. To change that you can use `.config` object:
 
@@ -115,7 +139,8 @@ CleanActions.config.raise_errors = true
 Here is a list of errors affected by this config:
 
 - type mismatch from (Typed Returns)[/README.md#Typed-Returns];
-- action with (#before_transaction)[/README.md#before_transaction] is called inside the transaction.
+- action with (#before_transaction)[/README.md#before_transaction] is called inside the transaction;
+- invalid isolation levels.
 
 ## Advanced Lifecycle
 

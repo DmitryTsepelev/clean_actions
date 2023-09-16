@@ -12,6 +12,16 @@ module CleanActions
       def before_actions_blocks
         @before_actions_blocks ||= []
       end
+
+      def with_isolation_level(isolation_level)
+        IsolationLevelValidator.validate(isolation_level)
+
+        @isolation_level = isolation_level
+      end
+
+      def isolation_level
+        @isolation_level ||= CleanActions.config.isolation_level
+      end
     end
 
     def call

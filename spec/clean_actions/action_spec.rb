@@ -93,6 +93,48 @@ RSpec.describe CleanActions::Action do
     end
   end
 
+  context ".with_isolation_level" do
+    let(:action_class) do
+      Class.new(CleanActions::Action)
+    end
+
+    before do
+      allow(ActiveRecord::Base).to receive(:transaction)
+    end
+
+    specify do
+      subject
+      expect(ActiveRecord::Base).to have_received(:transaction).with(isolation: :read_committed, requires_new: true)
+    end
+
+    context "when specific level is configured" do
+      let(:action_class) do
+        Class.new(CleanActions::Action).tap do |action|
+          action.with_isolation_level(:repeatable_read)
+        end
+      end
+
+      it "uses configured level" do
+        subject
+        expect(ActiveRecord::Base).to have_received(:transaction).with(isolation: :repeatable_read, requires_new: true)
+      end
+    end
+
+    context "when global level is configured" do
+      around(:each) do |example|
+        old_isolation_level = CleanActions.config.isolation_level
+        CleanActions.config.isolation_level = :repeatable_read
+        example.run
+        CleanActions.config.isolation_level = old_isolation_level
+      end
+
+      it "uses global level" do
+        subject
+        expect(ActiveRecord::Base).to have_received(:transaction).with(isolation: :repeatable_read, requires_new: true)
+      end
+    end
+  end
+
   context ".before_transaction_blocks" do
     let(:before_transaction_service) { instance_double "before_transactionService" }
 

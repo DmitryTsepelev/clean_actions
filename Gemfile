@@ -25,4 +25,4 @@ gem "database_cleaner-active_record", "~> 2.0"
 gem "standard", "~> 1.24.0"
 
 # Dummy app dependencies
-gem "sqlite3", "~> 1.4"
+gem "pg", "~> 1.4"

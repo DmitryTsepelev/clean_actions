@@ -1,8 +1,8 @@
 default: &default
-  adapter: sqlite3
+  adapter: postgresql
   pool: 5
   timeout: 5000
 
 test:
   <<: *default
-  database: db/test.sqlite3
+  database: clean_actions_test

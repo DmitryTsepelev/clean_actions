@@ -32,11 +32,28 @@ jobs:
             rails: "6.1"
     env:
       RAILS_VERSION: ${{ matrix.rails }}
+
+    services:
+      postgres:
+        image: postgres
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: clean_actions_test
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
     - name: Run specs
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/clean_actions_test
+        RAILS_ENV: test
       run: bundle exec rake spec
