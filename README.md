@@ -108,6 +108,34 @@ The last line of `#perform_actions` will be returned. Note that if you have this
 
 This section contains some additional hooks to improve your actions.
 
+### before_transaction
+
+If you want to do something outside the transaction (e.g., some IO operation)—use `before_transaction`:
+
+```ruby
+class SyncData < CleanActions::Base
+  def before_transaction
+    @response = ApiClient.fetch
+  end
+
+  def perform_actions
+    # use response
+  end
+end
+```
+
+Please note, that error will be risen if this action will be called from another action (and transaction will be already in progress):
+
+```ruby
+class OtherAction < CleanActions::Base
+  def perform_actions
+    SyncData.call
+  end
+end
+
+OtherAction.call # => StandardError("SyncData#before_transaction was called inside the transaction")
+```
+
 ### before_actions
 
 If you want to do something before action — use `#before_action` callback, that is run inside the transaction but before `#perform_actions`:

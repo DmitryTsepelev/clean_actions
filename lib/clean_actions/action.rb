@@ -15,6 +15,14 @@ module CleanActions
     end
 
     def call
+      if respond_to?(:before_transaction)
+        if Thread.current[:transaction_started]
+          raise "#{self.class.name}#before_transaction was called inside the transaction"
+        end
+
+        before_transaction
+      end
+
       TransactionRunner.new(self).run do
         self.class.before_actions_blocks.each { |b| instance_eval(&b) }
         perform_actions

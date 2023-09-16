@@ -82,10 +82,49 @@ RSpec.describe CleanActions::Action do
       allow(ensured_service).to receive(:call)
     end
 
-    it do
+    specify do
       expect(subject).to be_a(CleanActions::ActionFailure)
       expect(subject.reason).to eq(:invalid_data)
       expect(ensured_service).to have_received(:call)
+    end
+  end
+
+  context ".before_transaction_blocks" do
+    let(:before_transaction_service) { instance_double "before_transactionService" }
+
+    let(:action_class) do
+      service = before_transaction_service
+
+      Class.new(CleanActions::Action).tap do |action|
+        action.define_method(:before_transaction) do
+          service.call
+        end
+      end
+    end
+
+    before do
+      allow(before_transaction_service).to receive(:call)
+    end
+
+    specify do
+      expect(subject).to be_nil
+      expect(before_transaction_service).to have_received(:call)
+    end
+
+    context "when transaction was already in progress" do
+      before do
+        Thread.current[:transaction_started] = true
+      end
+
+      after do
+        Thread.current[:transaction_started] = false
+      end
+
+      specify do
+        expect { subject }.to raise_exception(
+          StandardError, "#before_transaction was called inside the transaction"
+        )
+      end
     end
   end
 end
