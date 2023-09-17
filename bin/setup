@@ -4,3 +4,4 @@ IFS=$'\n\t'
 set -vx
 
 bundle install
+createdb clean_actions_test

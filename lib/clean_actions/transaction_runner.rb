@@ -16,8 +16,10 @@ module CleanActions
 
     def start_transaction(&block)
       Thread.current[:transaction_started] = true
+      isolation_level = @action.class.isolation_level
 
-      ActiveRecord::Base.transaction(requires_new: true) do
+      # TODO: validate isolation level for nested transaction
+      ActiveRecord::Base.transaction(isolation: isolation_level, requires_new: true) do
         block.call.tap { run_after_commit_actions }
       rescue => e
         run_rollback_blocks

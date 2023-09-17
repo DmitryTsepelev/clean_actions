@@ -14,8 +14,10 @@ module CleanActions
         if self.class.returned_classes.nil?
           returned_value = nil
         elsif self.class.returned_classes.none? { returned_value.is_a?(_1) }
-          raise "expected #{self.class.name} to return #{self.class.returned_classes.map(&:name).join(", ")}, " \
-          "returned #{returned_value.inspect}"
+          ErrorReporter.report(
+            "expected #{self.class.name} to return #{self.class.returned_classes.map(&:name).join(", ")}, " \
+            "returned #{returned_value.inspect}"
+          )
         end
 
         returned_value

@@ -5,6 +5,10 @@ RSpec.describe CleanActions::TypedReturns do
 
   let(:action_params) { {} }
 
+  before do
+    allow(CleanActions::ErrorReporter).to receive(:report)
+  end
+
   context "when returns is not configured" do
     let(:action_class) do
       Class.new(CleanActions::Action) do
@@ -69,10 +73,8 @@ RSpec.describe CleanActions::TypedReturns do
       end
 
       specify do
-        expect { subject }.to raise_error(
-          StandardError,
-          "expected  to return String, returned 42"
-        )
+        subject
+        expect(CleanActions::ErrorReporter).to have_received(:report).with("expected  to return String, returned 42")
       end
     end
 
@@ -128,10 +130,8 @@ RSpec.describe CleanActions::TypedReturns do
         end
 
         specify do
-          expect { subject }.to raise_error(
-            StandardError,
-            "expected  to return String, Hash, returned 42"
-          )
+          subject
+          expect(CleanActions::ErrorReporter).to have_received(:report).with("expected  to return String, Hash, returned 42")
         end
       end
     end

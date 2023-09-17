@@ -12,16 +12,20 @@ module CleanActions
       def before_actions_blocks
         @before_actions_blocks ||= []
       end
+
+      def with_isolation_level(isolation_level)
+        IsolationLevelValidator.validate(isolation_level)
+
+        @isolation_level = isolation_level
+      end
+
+      def isolation_level
+        @isolation_level ||= CleanActions.config.isolation_level
+      end
     end
 
     def call
-      if respond_to?(:before_transaction)
-        if Thread.current[:transaction_started]
-          raise "#{self.class.name}#before_transaction was called inside the transaction"
-        end
-
-        before_transaction
-      end
+      perform_before_transaction
 
       TransactionRunner.new(self).run do
         self.class.before_actions_blocks.each { |b| instance_eval(&b) }
@@ -43,6 +47,18 @@ module CleanActions
     end
 
     def rollback
+    end
+
+    private
+
+    def perform_before_transaction
+      return unless respond_to?(:before_transaction)
+
+      if Thread.current[:transaction_started]
+        ErrorReporter.report("#{self.class.name}#before_transaction was called inside the transaction")
+      end
+
+      before_transaction
     end
   end
 end
