@@ -140,7 +140,8 @@ Here is a list of errors affected by this config:
 
 - type mismatch from (Typed Returns)[/README.md#Typed-Returns];
 - action with (#before_transaction)[/README.md#before_transaction] is called inside the transaction;
-- invalid isolation levels.
+- invalid isolation levels;
+- action calls from unexpected places.
 
 ## Advanced Lifecycle
 
@@ -174,6 +175,8 @@ end
 OtherAction.call # => "SyncData#before_transaction was called inside the transaction"  is logged
 ```
 
+⚠️ Do not call other actions from this method!
+
 ### before_actions
 
 If you want to do something before action — use `#before_action` callback, that is run inside the transaction but before `#perform_actions`:
@@ -189,6 +192,8 @@ class AddItemToCart < CleanActions::Base
   end
 end
 ```
+
+⚠️ Do not call other actions from this method!
 
 ### fail_with
 
@@ -218,6 +223,8 @@ end
 
 CheckNumber.dry_call(value: 1) # => [CleanActions::ActionFailure.new(:fail_odd), CleanActions::ActionFailure.new(:fail1)]
 ```
+
+⚠️ Do not call other actions from this method!
 
 ### rollback
 

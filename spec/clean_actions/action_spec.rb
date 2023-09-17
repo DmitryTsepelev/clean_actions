@@ -10,66 +10,84 @@ RSpec.describe CleanActions::Action do
   end
 
   context "#perform_actions" do
-    let(:ensured_service) { instance_double "EnsuredService" }
-    let(:transactional_service) { instance_double "TransactionalService" }
+    let(:ensured_body) { instance_double "EnsuredBody" }
+    let(:transactional_body) { instance_double "TransactionalBody" }
 
     let(:action_class) do
-      e_service = ensured_service
-      service = transactional_service
+      e_body = ensured_body
+      t_body = transactional_body
 
       Class.new(CleanActions::Action).tap do |action|
-        action.define_method(:ensure) { e_service.call }
+        action.define_method(:ensure) { e_body.call }
 
         action.define_method(:perform_actions) do
-          service.call
+          t_body.call
           42
         end
       end
     end
 
     before do
-      allow(ensured_service).to receive(:call)
-      allow(transactional_service).to receive(:call)
+      allow(ensured_body).to receive(:call)
+      allow(transactional_body).to receive(:call)
     end
 
     specify do
       expect(subject).to eq(42)
-      expect(transactional_service).to have_received(:call)
-      expect(ensured_service).to have_received(:call)
+      expect(transactional_body).to have_received(:call)
+      expect(ensured_body).to have_received(:call)
     end
   end
 
   context "#after_commit" do
-    let(:ensured_service) { instance_double "EnsuredService" }
-    let(:after_commit_service) { instance_double "AfterCommitService" }
+    let(:ensured_body) { instance_double "EnsuredBody" }
+    let(:after_commit_body) { instance_double "AfterCommitBody" }
 
     let(:action_class) do
-      e_service = ensured_service
-      ac_service = after_commit_service
+      e_body = ensured_body
+      ac_body = after_commit_body
 
       Class.new(CleanActions::Action).tap do |action|
-        action.define_method(:after_commit) { ac_service.call }
-        action.define_method(:ensure) { e_service.call }
+        action.define_method(:after_commit) { ac_body.call }
+        action.define_method(:ensure) { e_body.call }
       end
     end
 
-    before do
-      allow(ensured_service).to receive(:call)
-      allow(after_commit_service).to receive(:call)
+    context "when valid body is used" do
+      before do
+        allow(ensured_body).to receive(:call)
+        allow(after_commit_body).to receive(:call)
+      end
+
+      specify do
+        expect(subject).to be_nil
+        expect(after_commit_body).to have_received(:call)
+        expect(ensured_body).to have_received(:call)
+      end
     end
 
-    specify do
-      expect(subject).to be_nil
-      expect(after_commit_service).to have_received(:call)
-      expect(ensured_service).to have_received(:call)
+    context "when another service is called inside after_commit" do
+      let(:after_commit_body) { Class.new(CleanActions::Action) }
+
+      before do
+        allow(ensured_body).to receive(:call)
+      end
+
+      specify do
+        expect(subject).to be_nil
+        expect(ensured_body).to have_received(:call)
+        expect(CleanActions::ErrorReporter).to have_received(:report).with(
+          "calling action  is resticted inside #after_commit"
+        )
+      end
     end
   end
 
   context "#fail!" do
-    let(:ensured_service) { instance_double "EnsuredService" }
+    let(:ensured_body) { instance_double "EnsuredBody" }
 
     let(:action_class) do
-      service = ensured_service
+      body = ensured_body
 
       Class.new(CleanActions::Action).tap do |action|
         action.define_method(:perform_actions) do
@@ -77,19 +95,19 @@ RSpec.describe CleanActions::Action do
         end
 
         action.define_method(:ensure) do
-          service.call
+          body.call
         end
       end
     end
 
     before do
-      allow(ensured_service).to receive(:call)
+      allow(ensured_body).to receive(:call)
     end
 
     specify do
       expect(subject).to be_a(CleanActions::ActionFailure)
       expect(subject.reason).to eq(:invalid_data)
-      expect(ensured_service).to have_received(:call)
+      expect(ensured_body).to have_received(:call)
     end
   end
 
@@ -136,25 +154,25 @@ RSpec.describe CleanActions::Action do
   end
 
   context ".before_transaction_blocks" do
-    let(:before_transaction_service) { instance_double "before_transactionService" }
+    let(:before_transaction_body) { instance_double "BeforeTransactionBody" }
 
     let(:action_class) do
-      service = before_transaction_service
+      body = before_transaction_body
 
       Class.new(CleanActions::Action).tap do |action|
         action.define_method(:before_transaction) do
-          service.call
+          body.call
         end
       end
     end
 
     before do
-      allow(before_transaction_service).to receive(:call)
+      allow(before_transaction_body).to receive(:call)
     end
 
     specify do
       expect(subject).to be_nil
-      expect(before_transaction_service).to have_received(:call)
+      expect(before_transaction_body).to have_received(:call)
     end
 
     context "when transaction was already in progress" do
@@ -169,6 +187,91 @@ RSpec.describe CleanActions::Action do
       specify do
         subject
         expect(CleanActions::ErrorReporter).to have_received(:report).with("#before_transaction was called inside the transaction")
+      end
+    end
+  end
+
+  context "#rollback" do
+    let(:rollback_body) { instance_double "RollbackBody" }
+
+    before do
+      allow(rollback_body).to receive(:call)
+    end
+
+    context "when action succeeds" do
+      let(:action_class) do
+        r_body = rollback_body
+
+        Class.new(CleanActions::Action).tap do |action|
+          action.define_method(:rollback) { r_body.call }
+        end
+      end
+
+      specify do
+        expect(subject).to be_nil
+        expect(rollback_body).not_to have_received(:call)
+      end
+    end
+
+    context "when action fails" do
+      let(:action_class) do
+        r_body = rollback_body
+
+        Class.new(CleanActions::Action).tap do |action|
+          action.define_method(:perform_actions) do
+            fail!(:invalid_data)
+          end
+
+          action.define_method(:rollback) { r_body.call }
+        end
+      end
+
+      specify do
+        expect(subject).to be_a(CleanActions::ActionFailure)
+        expect(subject.reason).to eq(:invalid_data)
+        expect(rollback_body).to have_received(:call)
+      end
+    end
+  end
+
+  context "#before_actions" do
+    let(:before_actions_body) { instance_double "BeforeActionsBody" }
+
+    context "when valid body is used" do
+      before do
+        allow(before_actions_body).to receive(:call)
+      end
+
+      context "when action succeeds" do
+        let(:action_class) do
+          ba_body = before_actions_body
+
+          Class.new(CleanActions::Action).tap do |action|
+            action.before_actions { ba_body.call }
+          end
+        end
+
+        specify do
+          expect(subject).to be_nil
+          expect(before_actions_body).to have_received(:call)
+        end
+      end
+    end
+
+    context "when another action is executed inside" do
+      let(:nested_action) { Class.new(CleanActions::Action).new }
+
+      let(:action_class) do
+        n_action = nested_action
+
+        Class.new(CleanActions::Action).tap do |action|
+          action.before_actions { n_action.call }
+        end
+      end
+
+      specify do
+        expect(subject).to be_nil
+        expect(CleanActions::ErrorReporter).to have_received(:report)
       end
     end
   end
