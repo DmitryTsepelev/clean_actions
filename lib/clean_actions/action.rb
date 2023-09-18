@@ -25,10 +25,17 @@ module CleanActions
     end
 
     def call
-      perform_before_transaction
+      if TransactionRunner.action_calls_restricted_by
+        ErrorReporter.report("calling action #{self.class.name} is resticted inside ##{TransactionRunner.action_calls_restricted_by}")
+      end
+
+      TransactionRunner.restrict_action_calls_by(:before_transaction) { perform_before_transaction }
 
       TransactionRunner.new(self).run do
-        self.class.before_actions_blocks.each { |b| instance_eval(&b) }
+        TransactionRunner.restrict_action_calls_by(:before_actions) do
+          self.class.before_actions_blocks.each { |b| instance_eval(&b) }
+        end
+
         perform_actions
       end
     end
