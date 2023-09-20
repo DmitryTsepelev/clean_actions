@@ -176,12 +176,12 @@ RSpec.describe CleanActions::Action do
     end
 
     context "when transaction was already in progress" do
-      before do
+      around(:each) do |example|
         Thread.current[:transaction_started] = true
-      end
-
-      after do
+        Thread.current[:root_isolation_level] = :read_committed
+        example.run
         Thread.current[:transaction_started] = false
+        Thread.current[:root_isolation_level] = nil
       end
 
       specify do

@@ -26,12 +26,14 @@ RSpec.describe CleanActions::TransactionRunner do
       expect_inside_block(action) do
         expect(Thread.current[:performed_actions]).to eq([action])
         expect(Thread.current[:transaction_started]).to eq(true)
+        expect(Thread.current[:root_isolation_level]).to eq(action.class.isolation_level)
       end
 
       expect(action.after_commit_happened).to eq(true)
       expect(action.ensure_happened).to eq(true)
       expect(Thread.current[:transaction_started]).to eq(false)
       expect(Thread.current[:performed_actions]).to be_empty
+      expect(Thread.current[:root_isolation_level]).to be_nil
     end
   end
 
@@ -40,6 +42,7 @@ RSpec.describe CleanActions::TransactionRunner do
       expect_inside_block(action) do
         expect(Thread.current[:performed_actions]).to eq([action])
         expect(Thread.current[:transaction_started]).to eq(true)
+        expect(Thread.current[:root_isolation_level]).to eq(action.class.isolation_level)
 
         raise CleanActions::ActionFailure, :invalid_data
       end
@@ -48,6 +51,7 @@ RSpec.describe CleanActions::TransactionRunner do
       expect(action.ensure_happened).to eq(true)
       expect(Thread.current[:transaction_started]).to eq(false)
       expect(Thread.current[:performed_actions]).to be_empty
+      expect(Thread.current[:root_isolation_level]).to be_nil
     end
   end
 
@@ -59,6 +63,7 @@ RSpec.describe CleanActions::TransactionRunner do
         expect_inside_block(action) do
           expect(Thread.current[:performed_actions]).to eq([action])
           expect(Thread.current[:transaction_started]).to eq(true)
+          expect(Thread.current[:root_isolation_level]).to eq(action.class.isolation_level)
 
           raise rollback_error
         end
@@ -68,6 +73,7 @@ RSpec.describe CleanActions::TransactionRunner do
       expect(action.ensure_happened).to eq(true)
       expect(Thread.current[:transaction_started]).to eq(false)
       expect(Thread.current[:performed_actions]).to be_empty
+      expect(Thread.current[:root_isolation_level]).to be_nil
     end
   end
 
@@ -79,6 +85,7 @@ RSpec.describe CleanActions::TransactionRunner do
         expect_inside_block(action) do
           expect(Thread.current[:performed_actions]).to eq([action])
           expect(Thread.current[:transaction_started]).to eq(true)
+          expect(Thread.current[:root_isolation_level]).to eq(action.class.isolation_level)
 
           raise standard_error
         end
@@ -88,6 +95,7 @@ RSpec.describe CleanActions::TransactionRunner do
       expect(action.ensure_happened).to eq(true)
       expect(Thread.current[:transaction_started]).to eq(false)
       expect(Thread.current[:performed_actions]).to be_empty
+      expect(Thread.current[:root_isolation_level]).to be_nil
     end
   end
 
@@ -98,10 +106,12 @@ RSpec.describe CleanActions::TransactionRunner do
       expect_inside_block(action) do
         expect(Thread.current[:performed_actions]).to eq([action])
         expect(Thread.current[:transaction_started]).to eq(true)
+        expect(Thread.current[:root_isolation_level]).to eq(action.class.isolation_level)
 
         expect_inside_block(nested_action) do
           expect(Thread.current[:performed_actions]).to eq([action, nested_action])
           expect(Thread.current[:transaction_started]).to eq(true)
+          expect(Thread.current[:root_isolation_level]).to eq(action.class.isolation_level)
         end
 
         expect(Thread.current[:transaction_started]).to eq(true)
@@ -110,6 +120,7 @@ RSpec.describe CleanActions::TransactionRunner do
       expect(action.after_commit_happened).to be_truthy
       expect(action.ensure_happened).to eq(true)
       expect(nested_action.after_commit_happened).to be_truthy
+      expect(Thread.current[:root_isolation_level]).to be_nil
 
       expect(Thread.current[:transaction_started]).to eq(false)
       expect(Thread.current[:performed_actions]).to be_empty
@@ -137,6 +148,30 @@ RSpec.describe CleanActions::TransactionRunner do
 
         expect(Thread.current[:transaction_started]).to eq(false)
         expect(Thread.current[:performed_actions]).to be_empty
+      end
+    end
+
+    context "when nested action requires stronger isolation level" do
+      let(:repeatable_read_action_class) do
+        Class.new(CleanActions::Action) do
+          with_isolation_level :repeatable_read
+        end
+      end
+
+      before do
+        allow(CleanActions::ErrorReporter).to receive(:report)
+      end
+
+      it "reports error" do
+        expect_inside_block(action) do
+          repeatable_read_action_class.call
+        end
+
+        expect(CleanActions::ErrorReporter).to have_received(:report).with(
+          <<~MSG
+            action  requires repeatable_read, run inside read_committed
+          MSG
+        )
       end
     end
   end
