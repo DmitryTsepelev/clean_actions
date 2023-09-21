@@ -122,7 +122,7 @@ RSpec.describe CleanActions::Action do
 
     specify do
       subject
-      expect(ActiveRecord::Base).to have_received(:transaction).with(isolation: :read_committed, requires_new: true)
+      expect(ActiveRecord::Base).to have_received(:transaction).with(isolation: :read_committed)
     end
 
     context "when specific level is configured" do
@@ -134,7 +134,7 @@ RSpec.describe CleanActions::Action do
 
       it "uses configured level" do
         subject
-        expect(ActiveRecord::Base).to have_received(:transaction).with(isolation: :repeatable_read, requires_new: true)
+        expect(ActiveRecord::Base).to have_received(:transaction).with(isolation: :repeatable_read)
       end
     end
 
@@ -148,7 +148,7 @@ RSpec.describe CleanActions::Action do
 
       it "uses global level" do
         subject
-        expect(ActiveRecord::Base).to have_received(:transaction).with(isolation: :repeatable_read, requires_new: true)
+        expect(ActiveRecord::Base).to have_received(:transaction).with(isolation: :repeatable_read)
       end
     end
   end

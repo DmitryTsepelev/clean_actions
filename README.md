@@ -128,6 +128,20 @@ Also, you can configure it for the whole project:
 CleanActions.config.isolation_level = :serializable
 ```
 
+## Savepoints
+
+If you want to run one action inside another but want a nested one be inside the ([SAVEPOINT](https://www.postgresql.org/docs/current/sql-savepoint.html))—use `with_savepoint`:
+
+```ruby
+class AddItemToCart < CleanActions::Base
+  def perform_actions
+    @order = CreateOrder.call(user: @user, with_savepoint: true)
+  end
+end
+```
+
+Note that `after_commit` still happens when the transaction from the root action is commited.
+
 ## Error configuration
 
 When something weird happens during the action execution, the message is sent to the Rails log. Also, errors are _raised_ in development and test environments. To change that you can use `.config` object:
