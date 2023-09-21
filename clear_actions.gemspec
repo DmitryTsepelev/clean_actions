@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors = ["DmitryTsepelev"]
   spec.email = ["dmitry.a.tsepelev@gmail.com"]
   spec.homepage = "https://github.com/DmitryTsepelev/clean_actions"
-  spec.summary = "fill"
+  spec.summary = "A modern modular service object toolkit for Rails, that respects database transactions and adds type checks to returned values."
 
   spec.license = "MIT"
 
