@@ -1,8 +1,8 @@
 module CleanActions
   class Action
     class << self
-      def call(**kwargs)
-        new(**kwargs).call
+      def call(with_savepoint: false, **kwargs)
+        new(**kwargs).call(with_savepoint: with_savepoint)
       end
 
       def before_actions(&block)
@@ -24,14 +24,14 @@ module CleanActions
       end
     end
 
-    def call
+    def call(with_savepoint: false)
       if TransactionRunner.action_calls_restricted_by
         ErrorReporter.report("calling action #{self.class.name} is resticted inside ##{TransactionRunner.action_calls_restricted_by}")
       end
 
       TransactionRunner.restrict_action_calls_by(:before_transaction) { perform_before_transaction }
 
-      TransactionRunner.new(self).run do
+      TransactionRunner.new(self).run(with_savepoint: with_savepoint) do
         TransactionRunner.restrict_action_calls_by(:before_actions) do
           self.class.before_actions_blocks.each { |b| instance_eval(&b) }
         end

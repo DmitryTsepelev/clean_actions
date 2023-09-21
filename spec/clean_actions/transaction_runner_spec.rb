@@ -1,8 +1,8 @@
 require "spec_helper"
 
 RSpec.describe CleanActions::TransactionRunner do
-  def expect_inside_block(action, &block)
-    described_class.new(action).run(&block)
+  def expect_inside_block(action, with_savepoint: false, &block)
+    described_class.new(action).run(with_savepoint: with_savepoint, &block)
   end
 
   let(:action) { action_class.new }
@@ -102,6 +102,10 @@ RSpec.describe CleanActions::TransactionRunner do
   context "when another action is executed inside" do
     let(:nested_action) { action_class.new }
 
+    before do
+      allow(ActiveRecord::Base).to receive(:transaction).and_call_original
+    end
+
     specify do
       expect_inside_block(action) do
         expect(Thread.current[:performed_actions]).to eq([action])
@@ -124,6 +128,8 @@ RSpec.describe CleanActions::TransactionRunner do
 
       expect(Thread.current[:transaction_started]).to eq(false)
       expect(Thread.current[:performed_actions]).to be_empty
+
+      expect(ActiveRecord::Base).to have_received(:transaction).once.with(isolation: action.class.isolation_level)
     end
 
     context "when nested action fails" do
@@ -148,6 +154,8 @@ RSpec.describe CleanActions::TransactionRunner do
 
         expect(Thread.current[:transaction_started]).to eq(false)
         expect(Thread.current[:performed_actions]).to be_empty
+
+        expect(ActiveRecord::Base).to have_received(:transaction).once.with(isolation: action.class.isolation_level)
       end
     end
 
@@ -172,6 +180,36 @@ RSpec.describe CleanActions::TransactionRunner do
             action  requires repeatable_read, run inside read_committed
           MSG
         )
+      end
+    end
+
+    context "when nested action requires savepoint" do
+      specify do
+        expect_inside_block(action) do
+          expect(Thread.current[:performed_actions]).to eq([action])
+          expect(Thread.current[:transaction_started]).to eq(true)
+          expect(Thread.current[:root_isolation_level]).to eq(action.class.isolation_level)
+
+          expect(ActiveRecord::Base).to have_received(:transaction).once.with(isolation: action.class.isolation_level)
+
+          expect_inside_block(nested_action, with_savepoint: true) do
+            expect(Thread.current[:performed_actions]).to eq([action, nested_action])
+            expect(Thread.current[:transaction_started]).to eq(true)
+            expect(Thread.current[:root_isolation_level]).to eq(action.class.isolation_level)
+
+            expect(ActiveRecord::Base).to have_received(:transaction).once.with(requires_new: true)
+          end
+
+          expect(Thread.current[:transaction_started]).to eq(true)
+        end
+
+        expect(action.after_commit_happened).to be_truthy
+        expect(action.ensure_happened).to eq(true)
+        expect(nested_action.after_commit_happened).to be_truthy
+        expect(Thread.current[:root_isolation_level]).to be_nil
+
+        expect(Thread.current[:transaction_started]).to eq(false)
+        expect(Thread.current[:performed_actions]).to be_empty
       end
     end
   end

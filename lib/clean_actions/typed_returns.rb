@@ -6,7 +6,7 @@ module CleanActions
     end
 
     module PrependedMethods
-      def call
+      def call(**)
         returned_value = super
 
         return returned_value if returned_value.is_a?(ActionFailure)

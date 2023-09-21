@@ -17,7 +17,7 @@ module CleanActions
       @action = action
     end
 
-    def run(&block)
+    def run(with_savepoint: false, &block)
       performed_actions << @action
 
       if Thread.current[:transaction_started]
@@ -27,7 +27,11 @@ module CleanActions
           MSG
         end
 
-        return block.call
+        if with_savepoint
+          return ActiveRecord::Base.transaction(requires_new: true) { block.call }
+        else
+          return block.call
+        end
       end
 
       start_transaction(&block)
@@ -41,7 +45,7 @@ module CleanActions
       Thread.current[:transaction_started] = true
       Thread.current[:root_isolation_level] = action_isolation_level
 
-      ActiveRecord::Base.transaction(isolation: action_isolation_level, requires_new: true) do
+      ActiveRecord::Base.transaction(isolation: action_isolation_level) do
         block.call.tap { restrict_action_calls_by(:after_commit) { run_after_commit_actions } }
       rescue => e
         run_rollback_blocks
