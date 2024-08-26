@@ -35,6 +35,8 @@ class AddItemToCart < CleanActions::Base
 end
 ```
 
+You can support my open–source work [here](https://boosty.to/dmitry_tsepelev).
+
 ## Usage
 
 Add this line to your application's Gemfile:
